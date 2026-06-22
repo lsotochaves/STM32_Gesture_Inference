@@ -197,7 +197,7 @@ int main(void) {
         fwrite(&gz, 2, 1, stdout);
 
         led_green_on();
-        while(int i =0 ; i < 100000; i++); // delay (must be set to a small enough value so its visible but does not stall data transmission).
+        for (int i = 0; i < 100000; i++); // delay (must be set to a small enough value so its visible but does not stall data transmission).
         led_green_off();        
     }
 }
