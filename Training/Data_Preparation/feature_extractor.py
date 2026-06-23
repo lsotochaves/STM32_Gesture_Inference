@@ -26,11 +26,13 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "training_features.csv")
 # ---------------------------------------------------------------------------
 AXES = ["gx", "gy", "gz"]
 AXIS_FEATURES = ["mean", "std", "min", "max", "range", "energy", "zcr"]
-MAG_FEATURES  = ["mag_mean", "mag_max", "mag_std", "mag_energy"]
+MAG_FEATURES   = ["mag_mean", "mag_max", "mag_std", "mag_energy"]
+RATIO_FEATURES = ["gy_gx_energy_ratio"]
 
 FEATURE_COLUMNS = (
     [f"{ax}_{feat}" for ax in AXES for feat in AXIS_FEATURES]
     + MAG_FEATURES
+    + RATIO_FEATURES
 )
 CSV_HEADER = ["label"] + FEATURE_COLUMNS
 
@@ -126,11 +128,16 @@ def process_csv(path):
 
     mag = [math.sqrt(x**2 + y**2 + z**2) for x, y, z in zip(gx, gy, gz)]
 
+    gx_energy = _energy(gx)
+    gy_energy = _energy(gy)
+    gy_gx_ratio = gy_energy / gx_energy if gx_energy != 0.0 else float("inf")
+
     features = (
         _axis_features(gx)
         + _axis_features(gy)
         + _axis_features(gz)
         + [_mean(mag), max(mag), _std(mag), _energy(mag)]
+        + [gy_gx_ratio]
     )
 
     label = extract_label(os.path.splitext(os.path.basename(path))[0])
