@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
-STM32 Gesture Recorder
-Usage: python receiver.py <COM_PORT>
-Example: python receiver.py COM3
+STM32 Gesture Recorder (Linux)
+Usage: python receiver.py <SERIAL_PORT>
+Example: python receiver.py /dev/ttyACM0
+
+Keys:
+  R        → Start calibration + recording
+  1        → Save as "rest"
+  2        → Save as "horizontal_shake"
+  3        → Save as "vertical_shake"
+  Ctrl-C   → Quit
 """
 
 import sys
@@ -11,7 +18,9 @@ import csv
 import time
 import struct
 import threading
-import msvcrt
+import tty
+import termios
+import select
 import serial
 
 # ---------------------------------------------------------------------------
@@ -25,6 +34,13 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
 CSV_DIR = os.path.join(PARENT_DIR, "CSVs")
 
+# Gesture name mapping
+GESTURE_MAP = {
+    "1": "rest",
+    "2": "horizontal_shake",
+    "3": "vertical_shake",
+}
+
 # ---------------------------------------------------------------------------
 # Shared state (reader thread writes buffers; main thread drives the FSM)
 # ---------------------------------------------------------------------------
@@ -32,6 +48,7 @@ STATE_IDLE = "IDLE"
 STATE_CALIBRATING = "CALIBRATING"
 STATE_READY = "READY"
 STATE_RECORDING = "RECORDING"
+STATE_SAVING = "SAVING"
 
 state = STATE_IDLE
 state_lock = threading.Lock()
@@ -40,6 +57,19 @@ phase_start = 0.0
 calib_buffer = []  # raw (gx, gy, gz) during calibration
 record_buffer = []  # bias-corrected (gx, gy, gz) during recording
 bias = (0.0, 0.0, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Non-blocking keyboard input for Linux
+# ---------------------------------------------------------------------------
+def kbhit() -> bool:
+    """Return True if a keypress is waiting on stdin."""
+    return select.select([sys.stdin], [], [], 0)[0] != []
+
+
+def getch() -> str:
+    """Read a single character from stdin (no echo, no Enter required)."""
+    return sys.stdin.read(1)
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +93,7 @@ def reader_thread_fn(ser: serial.Serial) -> None:
         elif current == STATE_RECORDING:
             bx, by, bz = bias
             record_buffer.append((gx - bx, gy - by, gz - bz))
-        # IDLE → silently discard
+        # IDLE / SAVING → silently discard
 
 
 # ---------------------------------------------------------------------------
@@ -97,31 +127,40 @@ def main() -> None:
     global state, phase_start, calib_buffer, record_buffer, bias
 
     if len(sys.argv) < 2:
-        print("Usage: python receiver.py <COM_PORT>")
+        print("Usage: python receiver.py <SERIAL_PORT>")
+        print("Example: python receiver.py /dev/ttyACM0")
         sys.exit(1)
 
     try:
         ser = serial.Serial(sys.argv[1], baudrate=115200, timeout=1)
     except serial.SerialException as e:
         print(f"[ERROR] {e}")
+        print("[HINT]  Check permissions: sudo usermod -aG dialout $USER  (then log out/in)")
         sys.exit(1)
 
     print(f"[INFO]   Connected to {sys.argv[1]}")
-    print("Press R to record a gesture.  Ctrl-C to quit.\n")
+    print("Press R to record a gesture.  Ctrl-C to quit.")
+    print("After recording, press 1 (rest), 2 (horizontal_shake), or 3 (vertical_shake) to save.\n")
 
     reader = threading.Thread(target=reader_thread_fn, args=(ser,), daemon=True)
     reader.start()
 
+    # Put terminal in raw mode so keypresses are immediate (no Enter needed)
+    old_settings = termios.tcgetattr(sys.stdin)
+    pending_samples = []  # samples waiting to be saved
+
     try:
+        tty.setcbreak(sys.stdin.fileno())
+
         while True:
             # --- keyboard input (non-blocking) ---
-            if msvcrt.kbhit():
-                key = msvcrt.getch().lower()
+            if kbhit():
+                key = getch().lower()
 
                 with state_lock:
                     current = state
 
-                if key == b"r" and current == STATE_IDLE:
+                if key == "r" and current == STATE_IDLE:
                     calib_buffer.clear()
                     phase_start = time.time()
                     with state_lock:
@@ -134,6 +173,17 @@ def main() -> None:
                     with state_lock:
                         state = STATE_RECORDING
                     print("[RECORDING]  Perform gesture now...")
+
+                elif current == STATE_SAVING and key in GESTURE_MAP:
+                    gesture_name = GESTURE_MAP[key]
+                    save_csv(pending_samples, gesture_name)
+                    pending_samples.clear()
+                    with state_lock:
+                        state = STATE_IDLE
+                    print("\nPress R to record another gesture.\n")
+
+                elif current == STATE_SAVING and key not in GESTURE_MAP:
+                    print("[IGNORED]  Press 1 (rest), 2 (horizontal_shake), or 3 (vertical_shake)")
 
             # --- FSM transitions driven by elapsed time ---
             now = time.time()
@@ -163,24 +213,21 @@ def main() -> None:
                     )
 
             elif current == STATE_RECORDING and (now - phase_start) >= RECORD_DURATION:
+                pending_samples = list(record_buffer)
                 with state_lock:
-                    state = STATE_IDLE
-                samples = list(record_buffer)
+                    state = STATE_SAVING
 
-                print(f"[DONE]  {len(samples)} samples captured.")
-                name = input("Gesture name: ").strip().lower()
-                name = name.replace(" ", "_")
-                if name:
-                    save_csv(samples, name)
-                else:
-                    print("[DISCARDED]  No name given.")
-                print("\nPress R to record another gesture.\n")
+                print(f"[DONE]  {len(pending_samples)} samples captured.")
+                print("[SAVE]  Press 1 (rest), 2 (horizontal_shake), or 3 (vertical_shake)")
 
             time.sleep(0.005)
 
     except KeyboardInterrupt:
         print("\n[EXIT]")
         ser.close()
+    finally:
+        # Always restore terminal settings
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
 if __name__ == "__main__":
