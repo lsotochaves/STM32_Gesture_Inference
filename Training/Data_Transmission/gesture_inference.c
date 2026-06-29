@@ -9,17 +9,21 @@
  *   1. Hold the board still and power on — both LEDs light during bias
  *      calibration (~1 s), then turn off.
  *   2. Press the blue user button (PA0) to start a 2-second recording.
- *      Green LED stays solid while recording.
+ *      LD5 stays solid while recording.
  *   3. Prediction is shown for 3 s:
  *        rest             -> both LEDs off
- *        horizontal_shake -> green LED (GPIO13)
- *        vertical_shake   -> red   LED (GPIO14)
+ *        horizontal_shake -> LD5 (green, PB13)
+ *        vertical_shake   -> LD6 (red, PC5)
  *   4. Board returns to slow-blink "ready" state.
  *
  * Class indices (alphabetical, as exported by sklearn):
  *   0 = horizontal_shake
  *   1 = rest
  *   2 = vertical_shake
+ *
+ * LED notes:
+ *   LD5 (PB13) — active HIGH: gpio_set = ON,  gpio_clear = OFF
+ *   LD6 (PC5)  — active LOW:  gpio_clear = ON, gpio_set   = OFF
  */
 
 #include <libopencm3/stm32/rcc.h>
@@ -29,16 +33,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "classifier.h"
+#include "../Training_Data/classifier.h"
 
 /* ---------------------------------------------------------------------------
  * Hardware definitions
  * ------------------------------------------------------------------------- */
 
-#define LED_GREEN_PORT  GPIOG
+/* LD5 — active HIGH */
+#define LED_GREEN_PORT  GPIOB
 #define LED_GREEN_PIN   GPIO13
-#define LED_RED_PORT    GPIOG
-#define LED_RED_PIN     GPIO14
+
+/* LD6 — active LOW */
+#define LED_RED_PORT    GPIOC
+#define LED_RED_PIN     GPIO5
 
 #define BTN_PORT        GPIOA
 #define BTN_PIN         GPIO0   /* Blue user button — high when pressed */
@@ -81,19 +88,28 @@ static float buf_gz[N_SAMPLES];
 
 /* ---------------------------------------------------------------------------
  * LED helpers
+ *
+ * LD5 (PB13): active HIGH → set=ON,  clear=OFF
+ * LD6 (PC5):  active LOW  → clear=ON, set=OFF
  * ------------------------------------------------------------------------- */
 
 static void leds_init(void) {
-    rcc_periph_clock_enable(RCC_GPIOG);
-    gpio_mode_setup(GPIOG, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE,
-                    LED_GREEN_PIN | LED_RED_PIN);
-    gpio_clear(GPIOG, LED_GREEN_PIN | LED_RED_PIN);
+    rcc_periph_clock_enable(RCC_GPIOB);
+    gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_GREEN_PIN);
+    gpio_clear(GPIOB, LED_GREEN_PIN);   /* LD5 off (active high → clear) */
+
+    rcc_periph_clock_enable(RCC_GPIOC);
+    gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_RED_PIN);
+    gpio_set(GPIOC, LED_RED_PIN);       /* LD6 off (active low → set) */
 }
 
+/* LD5 — active HIGH */
 static void led_green_on(void)  { gpio_set(LED_GREEN_PORT, LED_GREEN_PIN); }
 static void led_green_off(void) { gpio_clear(LED_GREEN_PORT, LED_GREEN_PIN); }
-static void led_red_on(void)    { gpio_set(LED_RED_PORT, LED_RED_PIN); }
-static void led_red_off(void)   { gpio_clear(LED_RED_PORT, LED_RED_PIN); }
+
+/* LD6 — active LOW */
+static void led_red_on(void)    { gpio_clear(LED_RED_PORT, LED_RED_PIN); }
+static void led_red_off(void)   { gpio_set(LED_RED_PORT, LED_RED_PIN); }
 
 /* ---------------------------------------------------------------------------
  * User button (PA0 — high when pressed, board has external pull-down)
@@ -182,7 +198,6 @@ static void gyro_init(void) {
 
 /* ---------------------------------------------------------------------------
  * Busy-wait delay (~1 ms per call unit at 168 MHz)
- * Each inner loop: ~4 cycles (load, dec, store, branch) → 42000 × 4 = 168000
  * ------------------------------------------------------------------------- */
 
 static void delay_ms(uint32_t ms) {
@@ -240,7 +255,6 @@ static void collect_window(void) {
  *   [25]    gy_gx_energy_ratio
  * ------------------------------------------------------------------------- */
 
-/* Fills 7 slots: [mean, std, min, max, range, energy, zcr] */
 static void axis_features(const float *x, int n, float *out) {
     float sum = 0, mn = x[0], mx = x[0], sq = 0;
     for (int i = 0; i < n; i++) {
@@ -275,12 +289,10 @@ static void axis_features(const float *x, int n, float *out) {
 }
 
 static void compute_features(float *feat) {
-    /* Per-axis features */
-    axis_features(buf_gx, N_SAMPLES, feat + 0);   /* feat[0..6]   */
-    axis_features(buf_gy, N_SAMPLES, feat + 7);   /* feat[7..13]  */
-    axis_features(buf_gz, N_SAMPLES, feat + 14);  /* feat[14..20] */
+    axis_features(buf_gx, N_SAMPLES, feat + 0);
+    axis_features(buf_gy, N_SAMPLES, feat + 7);
+    axis_features(buf_gz, N_SAMPLES, feat + 14);
 
-    /* Magnitude: two passes to get mean before computing std */
     float mag_sum = 0, mag_max = 0, mag_sq = 0;
     for (int i = 0; i < N_SAMPLES; i++) {
         float m = sqrtf(buf_gx[i]*buf_gx[i] + buf_gy[i]*buf_gy[i] + buf_gz[i]*buf_gz[i]);
@@ -302,7 +314,6 @@ static void compute_features(float *feat) {
     feat[23] = sqrtf(mag_var / N_SAMPLES);
     feat[24] = mag_energy;
 
-    /* gy_energy / gx_energy ratio (feat[12] and feat[5] already computed) */
     float gx_energy = feat[5];
     float gy_energy = feat[12];
     feat[25] = (gx_energy != 0.0f) ? (gy_energy / gx_energy) : 1e9f;
@@ -318,7 +329,7 @@ static void show_result(int class_idx) {
     switch (class_idx) {
         case CLASS_HORIZONTAL: led_green_on(); break;
         case CLASS_VERTICAL:   led_red_on();   break;
-        case CLASS_REST:                        break; /* both off */
+        case CLASS_REST:                        break;
         default:               led_green_on(); led_red_on(); break;
     }
 }
@@ -342,32 +353,13 @@ int main(void) {
     led_red_off();
 
     while (1) {
-        /* Slow green blink = ready, waiting for button press */
-        led_green_on();  delay_ms(200);
-        led_green_off(); delay_ms(800);
-
-        if (!btn_pressed()) continue;
-
-        /* Debounce */
-        delay_ms(50);
-        while (btn_pressed());  /* wait for release */
-        delay_ms(50);
-
-        /* Solid green = recording window */
-        led_green_on();
         collect_window();
-        led_green_off();
 
-        /* Classify */
         float features[N_FEATURES];
         compute_features(features);
         int gesture = predict(features);
 
-        /* Show result for 3 seconds, then return to ready */
         show_result(gesture);
-        delay_ms(3000);
-        led_green_off();
-        led_red_off();
     }
 
     return 0;

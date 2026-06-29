@@ -17,7 +17,7 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = gesture_inference
+BINARY = stm_transmitter
 
 OOCD_INTERFACE = stlink-v2-1
 
