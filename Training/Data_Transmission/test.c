@@ -58,10 +58,11 @@ static void feat_minmax(const float *v, int n, float *lo, float *hi) {
 
 static void extract_features(int n, float *out) {
     float lo, hi;
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n; i++) {
         mag_buf[i] = rec_gx[i]*rec_gx[i] +
                      rec_gy[i]*rec_gy[i] +
                      rec_gz[i]*rec_gz[i];
+    }
 
     const float *axes[3] = { rec_gx, rec_gy, rec_gz };
     float energies[3];
@@ -184,7 +185,6 @@ int main(void) {
             rec_gx[s] = (float)((int16_t)((buf[1] << 8) | buf[0])) - bx;
             rec_gy[s] = (float)((int16_t)((buf[3] << 8) | buf[2])) - by;
             rec_gz[s] = (float)((int16_t)((buf[5] << 8) | buf[4])) - bz;
-            printf(".");
         }
 
         float features[NUM_FEATURES];
