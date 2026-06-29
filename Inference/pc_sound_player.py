@@ -67,6 +67,8 @@ def main():
                 pygame.mixer.music.stop()
                 pygame.mixer.music.load(SOUND_MAP[line])
                 pygame.mixer.music.play()
+            elif not pygame.mixer.music.get_busy():
+                pygame.mixer.music.play()
 
             last_gesture = line
 
