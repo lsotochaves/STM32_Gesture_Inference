@@ -18,8 +18,6 @@ int main(void) {
     setvbuf(stdin,  NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    printf("PASO 0\r\n");
-
     rcc_periph_clock_enable(RCC_SPI5);
     rcc_periph_clock_enable(RCC_GPIOF);
     gpio_mode_setup(GPIOF, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO7 | GPIO8 | GPIO9);
@@ -36,9 +34,8 @@ int main(void) {
     spi_set_clock_phase_1(SPI5);
     spi_enable(SPI5);
 
-    printf("PASO 1\r\n");
-
     while (1) {
+        printf("PASO 1\r\n");
         for (volatile int i = 0; i < 1000000; i++);
     }
 }
