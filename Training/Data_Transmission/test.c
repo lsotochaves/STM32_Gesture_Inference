@@ -11,7 +11,7 @@
 
 #include "classifier_invariant.h"
 
-#define RECORD_SAMPLES 50
+#define RECORD_SAMPLES 200
 
 static float rec_gx[RECORD_SAMPLES];
 static float rec_gy[RECORD_SAMPLES];
@@ -189,12 +189,12 @@ int main(void) {
             rec_gz[s] = (float)((int16_t)((buf[5] << 8) | buf[4])) - bz;
         }
 
-        printf("B: grabacion lista\r\n");
-
         float features[NUM_FEATURES];
         extract_features(RECORD_SAMPLES, features);
 
-        printf("C: features listos, f4=%d f5=%d\r\n", (int)features[4], (int)features[5]);
+        int cls = predict_invariant(features);
+        printf("%s\r\n", GESTURE_NAMES_INV[cls]);
+
         for (volatile int i = 0; i < 1000000; i++);
     }
 }
