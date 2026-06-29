@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-STM32 Gesture Recorder (Linux) — Direction-Invariant
+STM32 Gesture Recorder (Linux)
 Usage: python receiver.py <SERIAL_PORT>
 Example: python receiver.py /dev/ttyACM0
 
@@ -11,8 +11,8 @@ Keys:
   3        → Save as "vertical_shake"
   Ctrl-C   → Quit
 
-Saves raw bias-corrected samples without any orientation transform.
-Use with feature_extractor_invariant.py for direction-invariant training.
+Before recording, you will be asked for the cardinal direction the board is
+facing so that all samples are rotated to the North reference frame.
 """
 
 import sys
@@ -113,14 +113,64 @@ def next_filename(gesture_name: str) -> str:
         n += 1
 
 
-def save_csv(samples: list, gesture_name: str) -> None:
+# ---------------------------------------------------------------------------
+# Orientation normalisation
+# All recordings are rotated to the North reference frame so that the same
+# physical gesture always lands on the same axes regardless of board heading.
+#
+# The board is assumed flat (horizontal), so Gz is invariant.
+# Rotating the board clockwise by θ from North maps sensor axes as:
+#   Gx_ref =  Gx·cos(θ) + Gy·sin(θ)
+#   Gy_ref = −Gx·sin(θ) + Gy·cos(θ)
+#
+# For 90° increments this reduces to simple sign/swap operations:
+#   North  (  0°): ( Gx,  Gy)
+#   East   ( 90°): ( Gy, -Gx)
+#   South  (180°): (-Gx, -Gy)
+#   West   (270°): (-Gy,  Gx)
+# ---------------------------------------------------------------------------
+DIRECTION_TRANSFORM = {
+    "N": lambda gx, gy: ( gx,  gy),
+    "E": lambda gx, gy: ( gy, -gx),
+    "S": lambda gx, gy: (-gx, -gy),
+    "W": lambda gx, gy: (-gy,  gx),
+}
+
+DIRECTION_NAMES = {"N": "North", "E": "East", "S": "South", "W": "West"}
+
+
+def ask_direction() -> str:
+    """Prompt once for the cardinal direction the board connector faces."""
+    print("\nWhich cardinal direction is the board facing?")
+    print("  N = North (reference)  E = East  S = South  W = West")
+    while True:
+        choice = input("Direction [N/E/S/W]: ").strip().upper()
+        if choice in DIRECTION_TRANSFORM:
+            print(f"[INFO]   Orientation set to {DIRECTION_NAMES[choice]} — "
+                  f"samples will be rotated to North reference frame.\n")
+            return choice
+        print("[ERROR]  Enter N, E, S, or W.")
+
+
+def apply_orientation(samples: list, direction: str) -> list:
+    """Return a new list with (Gx, Gy) rotated to the North reference frame."""
+    transform = DIRECTION_TRANSFORM[direction]
+    result = []
+    for gx, gy, gz in samples:
+        nx, ny = transform(gx, gy)
+        result.append((nx, ny, gz))
+    return result
+
+
+def save_csv(samples: list, gesture_name: str, direction: str) -> None:
+    oriented = apply_orientation(samples, direction)
     path = next_filename(gesture_name)
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["Index", "Gx", "Gy", "Gz"])
-        for i, (gx, gy, gz) in enumerate(samples):
+        for i, (gx, gy, gz) in enumerate(oriented):
             writer.writerow([i, round(gx), round(gy), round(gz)])
-    print(f"[SAVED]  {path}  ({len(samples)} samples)")
+    print(f"[SAVED]  {path}  ({len(oriented)} samples, orientation={DIRECTION_NAMES[direction]})")
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +192,8 @@ def main() -> None:
         sys.exit(1)
 
     print(f"[INFO]   Connected to {sys.argv[1]}")
+
+    direction = ask_direction()
 
     print("Press R to record a gesture.  Ctrl-C to quit.")
     print("After recording, press 1 (rest), 2 (horizontal_shake), or 3 (vertical_shake) to save.\n")
@@ -180,7 +232,7 @@ def main() -> None:
 
                 elif current == STATE_SAVING and key in GESTURE_MAP:
                     gesture_name = GESTURE_MAP[key]
-                    save_csv(pending_samples, gesture_name)
+                    save_csv(pending_samples, gesture_name, direction)
                     pending_samples.clear()
                     with state_lock:
                         state = STATE_IDLE

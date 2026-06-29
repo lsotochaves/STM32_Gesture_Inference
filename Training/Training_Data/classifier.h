@@ -14,22 +14,14 @@
 #include <string.h>
 void score(double * input, double * output) {
     double var0[3];
-    if (input[18] <= 1073.0) {
-        memcpy(var0, (double[]){0.0, 1.0, 0.0}, 3 * sizeof(double));
-    } else {
-        if (input[25] <= 25.725298166275024) {
-            if (input[19] <= 1438844.1875) {
-                memcpy(var0, (double[]){1.0, 0.0, 0.0}, 3 * sizeof(double));
-            } else {
-                if (input[7] <= 698.8768310546875) {
-                    memcpy(var0, (double[]){0.043478260869565216, 0.0, 0.9565217391304348}, 3 * sizeof(double));
-                } else {
-                    memcpy(var0, (double[]){0.6666666666666666, 0.0, 0.3333333333333333}, 3 * sizeof(double));
-                }
-            }
-        } else {
+    if (input[16] <= -1071.0) {
+        if (input[9] <= -12481.0) {
             memcpy(var0, (double[]){1.0, 0.0, 0.0}, 3 * sizeof(double));
+        } else {
+            memcpy(var0, (double[]){0.0, 0.0, 1.0}, 3 * sizeof(double));
         }
+    } else {
+        memcpy(var0, (double[]){0.0, 1.0, 0.0}, 3 * sizeof(double));
     }
     memcpy(output, var0, 3 * sizeof(double));
 }
