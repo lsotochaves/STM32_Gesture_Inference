@@ -65,10 +65,10 @@ def main():
 
             if line != last_gesture:
                 pygame.mixer.music.stop()
+                pygame.mixer.music.load(SOUND_MAP[line])
+                pygame.mixer.music.play()
 
             last_gesture = line
-            pygame.mixer.music.load(SOUND_MAP[line])
-            pygame.mixer.music.play()
 
     except KeyboardInterrupt:
         print("\n[EXIT]")
