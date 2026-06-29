@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define RECORD_SAMPLES 10
+#define RECORD_SAMPLES 200
 
 static float rec_gx[RECORD_SAMPLES];
 static float rec_gy[RECORD_SAMPLES];
@@ -104,6 +104,7 @@ int main(void) {
             rec_gx[s] = (float)((int16_t)((buf[1] << 8) | buf[0])) - bx;
             rec_gy[s] = (float)((int16_t)((buf[3] << 8) | buf[2])) - by;
             rec_gz[s] = (float)((int16_t)((buf[5] << 8) | buf[4])) - bz;
+            lo_poll(stdin);
         }
 
         printf("PASO 5: rec done, last=%.1f %.1f %.1f\r\n",
