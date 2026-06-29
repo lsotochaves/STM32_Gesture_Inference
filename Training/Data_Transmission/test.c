@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define RECORD_SAMPLES 200
+#define RECORD_SAMPLES 50
 
 static float rec_gx[RECORD_SAMPLES];
 static float rec_gy[RECORD_SAMPLES];
