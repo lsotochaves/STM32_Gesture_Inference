@@ -68,7 +68,10 @@ def main():
     print("\n=== Tree structure ===")
     print(export_text(clf, feature_names=feature_names))
 
-    c_code = m2c.export_to_c(clf)
+    c_code = m2c.export_to_c(clf).replace(
+        "void score(double * input, double * output)",
+        "static void score(double * input, double * output)", 1
+    )
 
     class_lines = "\n".join(
         f'    "{name}",' for name in classes

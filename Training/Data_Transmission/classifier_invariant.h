@@ -14,7 +14,7 @@
 #include <float.h>
 
 #include <string.h>
-void score(double * input, double * output) {
+static void score(double * input, double * output) {
     double var0[3];
     if (input[4] <= 766.0910797119141) {
         memcpy(var0, (double[]){0.0, 1.0, 0.0}, 3 * sizeof(double));

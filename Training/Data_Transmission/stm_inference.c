@@ -209,9 +209,11 @@ static void feat_minmax(const float *v, int n, float *lo, float *hi) {
 /*  [16] max_energy_ratio  [17] min_energy_ratio                     */
 /* ------------------------------------------------------------------ */
 
+static float mag_buf[RECORD_SAMPLES];
+
 static void extract_features(int n, float *out) {
     float lo, hi;
-    float mag[RECORD_SAMPLES];
+    float *mag = mag_buf;
 
     for (int i = 0; i < n; i++)
         mag[i] = sqrtf(rec_gx[i]*rec_gx[i] +
