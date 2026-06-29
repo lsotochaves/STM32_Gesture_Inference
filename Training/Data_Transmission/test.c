@@ -242,26 +242,32 @@ static void system_init(void) {
 
 int main(void) {
     system_init();
+    printf("[1] USB OK\r\n");
+
     spi_init();
+    printf("[2] SPI OK\r\n");
+
     gyro_init();
+    printf("[3] GYRO OK\r\n");
 
-    printf("Calibrating... hold still\r\n");
-
+    printf("[4] Calibrating... hold still\r\n");
     float bx, by, bz;
     calibrate(&bx, &by, &bz);
-
-    printf("Ready\r\n");
+    printf("[5] Calibration done: bx=%.1f by=%.1f bz=%.1f\r\n", bx, by, bz);
 
     float features[NUM_FEATURES];
 
     while (1) {
+        printf("[6] Recording...\r\n");
         record(bx, by, bz);
+        printf("[7] Extracting features...\r\n");
         extract_features(RECORD_SAMPLES, features);
+        printf("[8] Predicting...\r\n");
 
         int cls = predict_invariant(features);
         const char *name = GESTURE_NAMES_INV[cls];
 
-        printf("%s\r\n", name);
+        printf("[9] Result: %s\r\n", name);
 
         if (cls == 0) gpio_set(LED_GREEN_PORT, LED_GREEN_PIN);
         if (cls == 2) gpio_set(LED_RED_PORT, LED_RED_PIN);
