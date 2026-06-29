@@ -11,7 +11,7 @@
 
 #include "classifier_invariant.h"
 
-#define RECORD_SAMPLES 50
+#define RECORD_SAMPLES 200
 
 static float rec_gx[RECORD_SAMPLES];
 static float rec_gy[RECORD_SAMPLES];
