@@ -96,6 +96,7 @@ static void extract_features(int n, float *out) {
         out[16] = 0.0f;
         out[17] = 0.0f;
     }
+    printf("  e4 ratio ok\r\n");
 }
 
 int main(void) {
@@ -196,7 +197,7 @@ int main(void) {
         float features[NUM_FEATURES];
         extract_features(RECORD_SAMPLES, features);
 
-        printf("C: features listos, f4=%.1f f5=%.1f\r\n", features[4], features[5]);
+        printf("C: features listos, f4=%d f5=%d\r\n", (int)features[4], (int)features[5]);
         for (volatile int i = 0; i < 1000000; i++);
     }
 }
