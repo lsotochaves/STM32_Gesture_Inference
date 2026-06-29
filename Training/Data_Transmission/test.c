@@ -34,8 +34,22 @@ int main(void) {
     spi_set_clock_phase_1(SPI5);
     spi_enable(SPI5);
 
+    uint8_t tmp;
+
+    tmp = ~(1 << 7) & (0x20 & 0x3F);
+    gpio_clear(GPIOC, GPIO1);
+    spi_send(SPI5, tmp); spi_read(SPI5);
+    spi_send(SPI5, (1<<3)|(1<<0)|(1<<1)|(1<<2)|(3<<4)); spi_read(SPI5);
+    gpio_set(GPIOC, GPIO1);
+
+    tmp = ~(1 << 7) & (0x23 & 0x3F);
+    gpio_clear(GPIOC, GPIO1);
+    spi_send(SPI5, tmp); spi_read(SPI5);
+    spi_send(SPI5, (1<<4)); spi_read(SPI5);
+    gpio_set(GPIOC, GPIO1);
+
     while (1) {
-        printf("PASO 1\r\n");
+        printf("PASO 2\r\n");
         for (volatile int i = 0; i < 1000000; i++);
     }
 }
