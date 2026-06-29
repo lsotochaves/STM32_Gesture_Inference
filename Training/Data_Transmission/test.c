@@ -63,6 +63,7 @@ static void extract_features(int n, float *out) {
                      rec_gy[i]*rec_gy[i] +
                      rec_gz[i]*rec_gz[i];
     }
+    printf("  e1 mag ok\r\n");
 
     const float *axes[3] = { rec_gx, rec_gy, rec_gz };
     float energies[3];
@@ -74,12 +75,14 @@ static void extract_features(int n, float *out) {
         energies[a]   = feat_energy(axes[a], n);
         out[base + 2] = energies[a];
         out[base + 3] = feat_zcr(axes[a], n);
+        printf("  e2 axis %d ok\r\n", a);
     }
     out[12] = feat_mean(mag_buf, n);
     feat_minmax(mag_buf, n, &lo, &hi);
     out[13] = hi;
     out[14] = feat_mean(mag_buf, n);
     out[15] = feat_energy(mag_buf, n);
+    printf("  e3 mag feats ok\r\n");
     float total_e = energies[0] + energies[1] + energies[2];
     if (total_e > 0) {
         float mx = energies[0], mn = energies[0];
