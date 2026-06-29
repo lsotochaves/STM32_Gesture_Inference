@@ -17,7 +17,7 @@
 ## along with this library.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-BINARY = stm_transmitter
+BINARY = stm_inference
 
 OOCD_INTERFACE = stlink-v2-1
 
