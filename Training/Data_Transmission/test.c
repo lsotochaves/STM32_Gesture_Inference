@@ -30,7 +30,7 @@ static float feat_std(const float *v, int n) {
     float m = feat_mean(v, n);
     float s = 0;
     for (int i = 0; i < n; i++) { float d = v[i] - m; s += d * d; }
-    return s / n;
+    return sqrtf(s / n);
 }
 
 static float feat_energy(const float *v, int n) {
@@ -61,9 +61,9 @@ static void feat_minmax(const float *v, int n, float *lo, float *hi) {
 static void extract_features(int n, float *out) {
     float lo, hi;
     for (int i = 0; i < n; i++) {
-        mag_buf[i] = rec_gx[i]*rec_gx[i] +
-                     rec_gy[i]*rec_gy[i] +
-                     rec_gz[i]*rec_gz[i];
+        mag_buf[i] = sqrtf(rec_gx[i]*rec_gx[i] +
+                           rec_gy[i]*rec_gy[i] +
+                           rec_gz[i]*rec_gz[i]);
     }
 
     const float *axes[3] = { rec_gx, rec_gy, rec_gz };
@@ -80,7 +80,7 @@ static void extract_features(int n, float *out) {
     out[12] = feat_mean(mag_buf, n);
     feat_minmax(mag_buf, n, &lo, &hi);
     out[13] = hi;
-    out[14] = feat_mean(mag_buf, n);
+    out[14] = feat_std(mag_buf, n);
     out[15] = feat_energy(mag_buf, n);
     float total_e = energies[0] + energies[1] + energies[2];
     if (total_e > 0) {
