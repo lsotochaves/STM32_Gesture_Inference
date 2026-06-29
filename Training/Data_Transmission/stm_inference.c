@@ -323,6 +323,8 @@ int main(void) {
         extract_features(RECORD_SAMPLES, features);
 
         int cls = predict_invariant(features);
-        printf("%s\n", GESTURE_NAMES_INV[cls]);
+        const char *name = GESTURE_NAMES_INV[cls];
+        fwrite(name, 1, strlen(name), stdout);
+        fwrite("\n", 1, 1, stdout);
     }
 }
