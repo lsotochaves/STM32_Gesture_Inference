@@ -7,12 +7,92 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
 
 #define RECORD_SAMPLES 50
 
 static float rec_gx[RECORD_SAMPLES];
 static float rec_gy[RECORD_SAMPLES];
 static float rec_gz[RECORD_SAMPLES];
+static float mag_buf[RECORD_SAMPLES];
+
+#define NUM_FEATURES 18
+
+static float feat_mean(const float *v, int n) {
+    float s = 0;
+    for (int i = 0; i < n; i++) s += v[i];
+    return s / n;
+}
+
+static float feat_std(const float *v, int n) {
+    float m = feat_mean(v, n);
+    float s = 0;
+    for (int i = 0; i < n; i++) { float d = v[i] - m; s += d * d; }
+    return sqrtf(s / n);
+}
+
+static float feat_energy(const float *v, int n) {
+    float s = 0;
+    for (int i = 0; i < n; i++) s += v[i] * v[i];
+    return s / n;
+}
+
+static float feat_zcr(const float *v, int n) {
+    if (n < 2) return 0.0f;
+    int crossings = 0;
+    for (int i = 1; i < n; i++) {
+        int prev = (v[i-1] >= 0) ? 1 : -1;
+        int curr = (v[i]   >= 0) ? 1 : -1;
+        if (prev != curr) crossings++;
+    }
+    return (float)crossings / (n - 1);
+}
+
+static void feat_minmax(const float *v, int n, float *lo, float *hi) {
+    *lo = v[0]; *hi = v[0];
+    for (int i = 1; i < n; i++) {
+        if (v[i] < *lo) *lo = v[i];
+        if (v[i] > *hi) *hi = v[i];
+    }
+}
+
+static void extract_features(int n, float *out) {
+    float lo, hi;
+    for (int i = 0; i < n; i++)
+        mag_buf[i] = sqrtf(rec_gx[i]*rec_gx[i] +
+                           rec_gy[i]*rec_gy[i] +
+                           rec_gz[i]*rec_gz[i]);
+
+    const float *axes[3] = { rec_gx, rec_gy, rec_gz };
+    float energies[3];
+    for (int a = 0; a < 3; a++) {
+        int base = a * 4;
+        out[base + 0] = feat_std(axes[a], n);
+        feat_minmax(axes[a], n, &lo, &hi);
+        out[base + 1] = hi - lo;
+        energies[a]   = feat_energy(axes[a], n);
+        out[base + 2] = energies[a];
+        out[base + 3] = feat_zcr(axes[a], n);
+    }
+    out[12] = feat_mean(mag_buf, n);
+    feat_minmax(mag_buf, n, &lo, &hi);
+    out[13] = hi;
+    out[14] = feat_std(mag_buf, n);
+    out[15] = feat_energy(mag_buf, n);
+    float total_e = energies[0] + energies[1] + energies[2];
+    if (total_e > 0) {
+        float mx = energies[0], mn = energies[0];
+        for (int i = 1; i < 3; i++) {
+            if (energies[i] > mx) mx = energies[i];
+            if (energies[i] < mn) mn = energies[i];
+        }
+        out[16] = mx / total_e;
+        out[17] = mn / total_e;
+    } else {
+        out[16] = 0.0f;
+        out[17] = 0.0f;
+    }
+}
 
 int main(void) {
     rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
@@ -107,8 +187,10 @@ int main(void) {
             printf(".");
         }
 
-        printf("PASO 5: rec done, last=%.1f %.1f %.1f\r\n",
-               rec_gx[RECORD_SAMPLES-1], rec_gy[RECORD_SAMPLES-1], rec_gz[RECORD_SAMPLES-1]);
+        float features[NUM_FEATURES];
+        extract_features(RECORD_SAMPLES, features);
+
+        printf("PASO 6: f4=%.1f f5=%.1f\r\n", features[4], features[5]);
         for (volatile int i = 0; i < 1000000; i++);
     }
 }
