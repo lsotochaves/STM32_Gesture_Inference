@@ -164,6 +164,7 @@ int main(void) {
     float bz = (float)sz / 50;
 
     while (1) {
+        printf("A: grabando\r\n");
         for (int s = 0; s < RECORD_SAMPLES; s++) {
             while (1) {
                 tmp = (1 << 7) | (0x27 & 0x3F);
@@ -187,10 +188,12 @@ int main(void) {
             rec_gz[s] = (float)((int16_t)((buf[5] << 8) | buf[4])) - bz;
         }
 
+        printf("B: grabacion lista\r\n");
+
         float features[NUM_FEATURES];
         extract_features(RECORD_SAMPLES, features);
 
-        printf("PASO 6: f4=%.1f f5=%.1f\r\n", features[4], features[5]);
+        printf("C: features listos, f4=%.1f f5=%.1f\r\n", features[4], features[5]);
         for (volatile int i = 0; i < 1000000; i++);
     }
 }
