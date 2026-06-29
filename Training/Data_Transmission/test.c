@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <math.h>
 
+#include "classifier_invariant.h"
+
 #define RECORD_SAMPLES 50
 
 static float rec_gx[RECORD_SAMPLES];
@@ -28,7 +30,7 @@ static float feat_std(const float *v, int n) {
     float m = feat_mean(v, n);
     float s = 0;
     for (int i = 0; i < n; i++) { float d = v[i] - m; s += d * d; }
-    return s / n;
+    return sqrtf(s / n);
 }
 
 static float feat_energy(const float *v, int n) {
@@ -59,11 +61,10 @@ static void feat_minmax(const float *v, int n, float *lo, float *hi) {
 static void extract_features(int n, float *out) {
     float lo, hi;
     for (int i = 0; i < n; i++) {
-        mag_buf[i] = rec_gx[i]*rec_gx[i] +
-                     rec_gy[i]*rec_gy[i] +
-                     rec_gz[i]*rec_gz[i];
+        mag_buf[i] = sqrtf(rec_gx[i]*rec_gx[i] +
+                           rec_gy[i]*rec_gy[i] +
+                           rec_gz[i]*rec_gz[i]);
     }
-    printf("  e1 mag ok\r\n");
 
     const float *axes[3] = { rec_gx, rec_gy, rec_gz };
     float energies[3];
@@ -75,14 +76,12 @@ static void extract_features(int n, float *out) {
         energies[a]   = feat_energy(axes[a], n);
         out[base + 2] = energies[a];
         out[base + 3] = feat_zcr(axes[a], n);
-        printf("  e2 axis %d ok\r\n", a);
     }
     out[12] = feat_mean(mag_buf, n);
     feat_minmax(mag_buf, n, &lo, &hi);
     out[13] = hi;
-    out[14] = feat_mean(mag_buf, n);
+    out[14] = feat_std(mag_buf, n);
     out[15] = feat_energy(mag_buf, n);
-    printf("  e3 mag feats ok\r\n");
     float total_e = energies[0] + energies[1] + energies[2];
     if (total_e > 0) {
         float mx = energies[0], mn = energies[0];
@@ -96,7 +95,6 @@ static void extract_features(int n, float *out) {
         out[16] = 0.0f;
         out[17] = 0.0f;
     }
-    printf("  e4 ratio ok\r\n");
 }
 
 int main(void) {
@@ -168,7 +166,6 @@ int main(void) {
     float bz = (float)sz / 50;
 
     while (1) {
-        printf("A: grabando\r\n");
         for (int s = 0; s < RECORD_SAMPLES; s++) {
             while (1) {
                 tmp = (1 << 7) | (0x27 & 0x3F);
