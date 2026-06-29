@@ -218,6 +218,7 @@ static void record(float bx, float by, float bz) {
         rec_gx[i] = (float)raw_x - bx;
         rec_gy[i] = (float)raw_y - by;
         rec_gz[i] = (float)raw_z - bz;
+        printf("s%d: %d %d %d\r\n", i, raw_x, raw_y, raw_z);
     }
 
     gpio_clear(LED_GREEN_PORT, LED_GREEN_PIN);
